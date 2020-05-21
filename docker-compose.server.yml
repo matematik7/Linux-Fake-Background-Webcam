@@ -1,0 +1,9 @@
+version: '3'
+services:
+    bodypix:
+        image: bodypix
+        build:
+            context: ./bodypix
+        read_only: true
+        ports:
+          - 8123:9000

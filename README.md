@@ -1,11 +1,16 @@
 # Linux-Fake-Background-Webcam
 
+## Running distributed
+Run docker-compose.local.yml locally
+Run bodyproxy locally without docker
+Run docker-compose.server.yml remotely
+
 ## Background
-Video conferencing software support for background blurring and background 
-replacement under Linux is relatively poor. The Linux version of Zoom only 
-supports background replacement via chroma key. The Linux version of Microsoft 
+Video conferencing software support for background blurring and background
+replacement under Linux is relatively poor. The Linux version of Zoom only
+supports background replacement via chroma key. The Linux version of Microsoft
 Team does not support background blur. Over at Webcamoid, we tried to figure out
-if we can do these reliably using open source software 
+if we can do these reliably using open source software
 ([issues/250](https://github.com/webcamoid/webcamoid/issues/250)).
 
 Benjamen Elder wrote a
@@ -14,33 +19,33 @@ a background replacement solution using Python, OpenCV, Tensorflow and Node.js.
 The scripts in Elder's blogpost do not work out of box. In this repository, I
 tidied up his scripts, and provide a turn-key solution for creating a virtual
 webcam with background replacement and additionally foreground object placement,
-e.g. a podium. 
+e.g. a podium.
 
-Rather than using GPU for acceleration as described by the original blog post, 
-this version is CPU-only to avoid all the unnecessary complexities. By 
-downscaling the image sent to bodypix neural network, and upscaling the 
-received mask, this whole setup runs sufficiently fast under Intel i7-4900MQ. 
+Rather than using GPU for acceleration as described by the original blog post,
+this version is CPU-only to avoid all the unnecessary complexities. By
+downscaling the image sent to bodypix neural network, and upscaling the
+received mask, this whole setup runs sufficiently fast under Intel i7-4900MQ.
 
 ## Prerequisite
 You need to install v4l2loopback. If you are on Debian Buster, you can do the
 following:
-    
+
     sudo apt install v4l2loopback-dkms
 
 I added module options for v4l2loopback by creating
 ``/etc/modprobe.d/v4l2loopback.conf`` with the following content:
 
     options v4l2loopback devices=1  exclusive_caps=1 video_nr=2 card_label="v4l2loopback"
-    
+
 ``exclusive_caps`` is required by some programs, e.g. Zoom and Chrome.
 ``video_nr`` specifies which ``/dev/video*`` file is the v4l2loopback device.
 In this repository, I assume that ``/dev/video2`` is the virtual webcam, and
 ``/dev/video0`` is the physical webcam.
 
 I also created ``/etc/modules-load.d/v4l2loopback.conf`` with the following content:
-    
+
     v4l2loopback
-    
+
 This automatically loads v4l2loopback module at boot, with the specified module
 options.
 
@@ -49,7 +54,7 @@ If you get an error like
 OSError: [Errno 22] Invalid argument
 ```
 
-when opening the webcam from Python, please install v4l2loopback from the [github](https://github.com/umlaeute/v4l2loopback) repo, 
+when opening the webcam from Python, please install v4l2loopback from the [github](https://github.com/umlaeute/v4l2loopback) repo,
 as you could have an old version from your package manager.
 
 ## Installing with Docker
@@ -64,10 +69,10 @@ lose the ability to change background and foreground images on the fly.
 Please also make sure that your TCP port ``127.0.0.1:9000`` is free, as we will
 be using it.
 
-You need to have Node.js. Node.js version 12 is known to work. 
+You need to have Node.js. Node.js version 12 is known to work.
 
-You will need Python 3. You need to have pip installed. Please make sure that 
-you have installed the correct version pip, if you have both Python 2 and 
+You will need Python 3. You need to have pip installed. Please make sure that
+you have installed the correct version pip, if you have both Python 2 and
 Python 3 installed. Please make sure that the command ``pip3`` runs.
 
 I am assuming that you have set up your user environment properly, and when you
@@ -103,10 +108,10 @@ If you want to change the files above in the middle of streaming, replace them
 and press ``CTRL-C``
 
 #### fakecam.py
-Note that animated background is now support. The background image does not have 
-to be a jpeg file. For the implementation details, please refer to commit 
+Note that animated background is now support. The background image does not have
+to be a jpeg file. For the implementation details, please refer to commit
 [ee867be](https://github.com/fangfufu/Linux-Fake-Background-Webcam/commit/ee867be88e8fe5c9cfdd7d7a69f12ed3c3fb904c).
-Basically you can use any video file that your OpenCV can read. 
+Basically you can use any video file that your OpenCV can read.
 
 If you are not running fakecam.py under Docker, it supports the following options:
 
@@ -159,12 +164,12 @@ If you are not running fakecam.py under Docker, it supports the following option
 
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
-    
-Please note that Benjamen Elder's 
+
+Please note that Benjamen Elder's
 [blog post](https://elder.dev/posts/open-source-virtual-background/)
-is licensed under CC BY 4.0 (see the bottom of that webpage). According to 
+is licensed under CC BY 4.0 (see the bottom of that webpage). According to
 [FSF](https://www.fsf.org/blogs/licensing/cc-by-4-0-and-cc-by-sa-4-0-added-to-our-list-of-free-licenses),
-CC BY 4.0 is a noncopyleft license that is compatible with the GNU General 
-Public License version 3.0 (GPLv3), meaning I can adapt a CC BY 4.0 
-licensed work, forming a larger work, then release it under the terms 
+CC BY 4.0 is a noncopyleft license that is compatible with the GNU General
+Public License version 3.0 (GPLv3), meaning I can adapt a CC BY 4.0
+licensed work, forming a larger work, then release it under the terms
 of GPLv3.

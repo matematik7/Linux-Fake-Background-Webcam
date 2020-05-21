@@ -2,6 +2,7 @@ FROM debian:bullseye
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
+      psmisc \
       python3 \
       python3-pip \
       python3-numpy \

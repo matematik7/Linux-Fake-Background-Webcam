@@ -38,8 +38,8 @@ class FakeCam:
         self.width = width
         self.scale_factor = scale_factor
         self.bodypix_url = bodypix_url
-        self.real_cam = cv2.VideoCapture(webcam_path,cv2.CAP_V4L2)
-        self._setup_real_cam_properties()
+        self.webcam_path = webcam_path
+        self.real_cam = None
         self.fake_cam = pyfakewebcam.FakeWebcam(v4l2loopback_path, self.width,
                                                 self.height)
         self.foreground_mask = None
@@ -48,13 +48,19 @@ class FakeCam:
         self.images: Dict[str, Any] = {}
         self.lock = asyncio.Lock()
 
-    def _setup_real_cam_properties(self):
+    def _setup_real_cam(self):
+        self.real_cam = cv2.VideoCapture(self.webcam_path, cv2.CAP_V4L2)
         self.real_cam.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
         self.real_cam.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
         self.real_cam.set(cv2.CAP_PROP_FPS, self.fps)
         # In case the real webcam does not support the requested mode.
         self.height = int(self.real_cam.get(cv2.CAP_PROP_FRAME_HEIGHT))
         self.width = int(self.real_cam.get(cv2.CAP_PROP_FRAME_WIDTH))
+
+    async def _is_fake_cam_in_use(self, session):
+        async with session.get(url=self.bodypix_url+"/status") as r:
+            result = await r.json()
+            return result['on']
 
     async def _get_mask(self, frame, session):
         frame = cv2.resize(frame, (0, 0), fx=self.scale_factor,
@@ -71,7 +77,7 @@ class FakeCam:
                 mask, (0, 0), fx=1 / self.scale_factor,
                 fy=1 / self.scale_factor, interpolation=cv2.INTER_NEAREST
             )
-            mask = cv2.dilate(mask, np.ones((20, 20), np.uint8), iterations=1)
+            #  mask = cv2.dilate(mask, np.ones((20, 20), np.uint8), iterations=1)
             mask = cv2.blur(mask.astype(float), (20, 20))
             return mask
 
@@ -125,22 +131,31 @@ class FakeCam:
                 self.images["inverted_foreground_mask"] = 1 - self.images["foreground_mask"]
 
     async def get_frame(self, session):
-        _, frame = self.real_cam.read()
-        # fetch the mask with retries (the app needs to warmup and we're lazy)
-        # e v e n t u a l l y c o n s i s t e n t
-        mask = None
-        while mask is None:
-            try:
-                mask = await self._get_mask(frame, session)
-            except Exception as e:
-                print(f"Mask request failed, retrying: {e}")
-                traceback.print_exc()
+        if await self._is_fake_cam_in_use(session):
+            if not self.real_cam:
+                self._setup_real_cam()
+            _, frame = self.real_cam.read()
+            # fetch the mask with retries (the app needs to warmup and we're lazy)
+            # e v e n t u a l l y c o n s i s t e n t
+            mask = None
+            while mask is None:
+                try:
+                    mask = await self._get_mask(frame, session)
+                except Exception as e:
+                    print(f"Mask request failed, retrying: {e}")
+                    traceback.print_exc()
 
-        # composite the foreground and background
-        async with self.lock:
-            background = next(self.images["background"])
-            for c in range(frame.shape[2]):
-                frame[:, :, c] = frame[:, :, c] * mask + background[:, :, c] * (1 - mask)
+            # composite the foreground and background
+            async with self.lock:
+                background = next(self.images["background"])
+                for c in range(frame.shape[2]):
+                    frame[:, :, c] = frame[:, :, c] * mask + background[:, :, c] * (1 - mask)
+        else:
+            if self.real_cam:
+                self.real_cam.release()
+                self.real_cam = None
+            async with self.lock:
+                frame = next(self.images["background"])
 
         if not self.no_foreground:
             async with self.lock:

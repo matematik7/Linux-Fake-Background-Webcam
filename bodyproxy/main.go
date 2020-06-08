@@ -92,7 +92,7 @@ func (s *server) Worker() {
 			response, err := s.makeRequest(request)
 			if err != nil {
 				log.Println(err)
-				time.Sleep(time.Millisecond * 100)
+				return
 			}
 
 			s.mtx.Lock()

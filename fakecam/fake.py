@@ -2,6 +2,7 @@ import asyncio
 import itertools
 import signal
 import sys
+import time
 import traceback
 from argparse import ArgumentParser
 from functools import partial
@@ -154,6 +155,7 @@ class FakeCam:
             if self.real_cam:
                 self.real_cam.release()
                 self.real_cam = None
+            time.sleep(0.5)
             async with self.lock:
                 frame = next(self.images["background"])
 
